@@ -34,7 +34,7 @@ export type Category = {
   publishedAt: string;
   revisedAt: string;
   name: string;
-  slug: string;
+  slug?: string;
   description?: string;
 };
 
@@ -46,7 +46,7 @@ export type Tag = {
   publishedAt: string;
   revisedAt: string;
   name: string;
-  slug: string;
+  slug?: string;
 };
 
 // microCMSのレスポンス型
