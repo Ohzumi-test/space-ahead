@@ -21,7 +21,7 @@ let microCMSPosts = [];
 let isMicroCMS = false;
 try {
   const response = await getBlogPosts({
-    limit: 1000,
+    limit: 100,
     orders: '-publishedAt'
   });
   microCMSPosts = response.contents.filter(post => !post.draft);

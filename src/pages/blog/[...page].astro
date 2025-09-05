@@ -17,7 +17,7 @@ export async function getStaticPaths({ paginate }: GetStaticPathsOptions) {
   let microCMSPosts: BlogPost[] = [];
   try {
     const response = await getBlogPosts({
-      limit: 1000,
+      limit: 100,
       orders: '-publishedAt'
     });
     microCMSPosts = response.contents.filter(post => !post.draft);
