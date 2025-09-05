@@ -1,5 +1,7 @@
 ---
 import { getCollection } from "astro:content";
+import { getBlogPosts } from "../lib/microcms";
+import { sortBlogPostsByDateDesc } from "../utils/helpers";
 import MainLayout from "../layouts/MainLayout.astro";
 import siteConfig from "../site.config";
 import { sortItemsByDateDesc, withBase } from "../utils/helpers";
@@ -9,7 +11,24 @@ import { Image } from "astro:assets";
 import heroImage from "../assets/images/pixeltrue-space-discovery.svg";
 import ArrowRight from "../icons/ArrowRight.astro";
 
-const allPosts = (await getCollection("blogs")).sort(sortItemsByDateDesc);
+// Markdownの記事を取得
+const markdownPosts = (await getCollection("blogs")).sort(sortItemsByDateDesc);
+
+// microCMSの記事を取得
+let microCMSPosts = [];
+try {
+  const response = await getBlogPosts({
+    limit: 100,
+    orders: '-publishedAt'
+  });
+  microCMSPosts = response.contents.filter(post => !post.draft);
+} catch (error) {
+  console.warn('microCMSからの記事取得に失敗しました:', error);
+}
+
+// 両方の記事を結合（microCMSを優先）
+const allPosts = microCMSPosts.length > 0 ? microCMSPosts : markdownPosts;
+const isMicroCMS = microCMSPosts.length > 0;
 ---
 
 <MainLayout
@@ -66,7 +85,7 @@ const allPosts = (await getCollection("blogs")).sort(sortItemsByDateDesc);
         {
           allPosts
             .slice(0, siteConfig.recentPostLimit)
-            .map((post) => <PostCardPreview post={post} />)
+            .map((post) => <PostCardPreview post={post} isMicroCMS={isMicroCMS} />)
         }
       </div>
       <Button href={withBase("/blog")} class="space-btn-filled mt-8">

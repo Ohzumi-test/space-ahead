@@ -1,7 +1,12 @@
 import { type CollectionEntry } from 'astro:content';
+import type { BlogPost } from '../lib/microcms';
 
 export function sortItemsByDateDesc(itemA: CollectionEntry<'blogs'>, itemB: CollectionEntry<'blogs'>) {
     return new Date(itemB.data.pubDate).getTime() - new Date(itemA.data.pubDate).getTime();
+}
+
+export function sortBlogPostsByDateDesc(itemA: BlogPost, itemB: BlogPost) {
+    return new Date(itemB.publishedAt).getTime() - new Date(itemA.publishedAt).getTime();
 }
 
 export function createSlugFromTitle(title: string): string {
@@ -30,6 +35,17 @@ export function getAllTags(posts: CollectionEntry<'blogs'>[]) {
 export function getPostsByTag(posts: CollectionEntry<'blogs'>[], tagId: string) {
     const filteredPosts: CollectionEntry<'blogs'>[] = posts.filter((post) => (post.data.tags || []).map((tag) => createSlugFromTitle(tag)).includes(tagId));
     return filteredPosts;
+}
+
+export function getBlogPostsByTag(posts: BlogPost[], tagSlug: string) {
+    const filteredPosts: BlogPost[] = posts.filter((post) => 
+        (post.tags || []).some(tag => tag.slug === tagSlug)
+    );
+    return filteredPosts;
+}
+
+export function getAllTagsFromBlogPosts(posts: BlogPost[]) {
+    return [...new Set(posts.flatMap((post) => post.tags || []))];
 }
 
 export const withBase = (path: string) => `${import.meta.env.BASE_URL}${path}`;

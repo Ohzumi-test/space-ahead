@@ -1,21 +1,45 @@
 ---
 import type { GetStaticPathsOptions, Page } from "astro";
 import { type CollectionEntry, getCollection } from "astro:content";
+import { getBlogPosts, type BlogPost } from "../../lib/microcms";
 import Pagination from "../../components/Pagination.astro";
 import Subscribe from "../../components/Subscribe.astro";
-import { sortItemsByDateDesc } from "../../utils/helpers";
+import { sortItemsByDateDesc, sortBlogPostsByDateDesc } from "../../utils/helpers";
 import MainLayout from "../../layouts/MainLayout.astro";
 import siteConfig from "../../site.config";
 import PostCardPreview from "../../components/PostCardPreview.astro";
 
 export async function getStaticPaths({ paginate }: GetStaticPathsOptions) {
-  const blogs = (await getCollection("blogs")).sort(sortItemsByDateDesc);
-  return paginate(blogs, { pageSize: siteConfig.postsPerPage || 2 });
+  // Markdownの記事を取得
+  const markdownPosts = (await getCollection("blogs")).sort(sortItemsByDateDesc);
+  
+  // microCMSの記事を取得
+  let microCMSPosts: BlogPost[] = [];
+  try {
+    const response = await getBlogPosts({
+      limit: 1000,
+      orders: '-publishedAt'
+    });
+    microCMSPosts = response.contents.filter(post => !post.draft);
+  } catch (error) {
+    console.warn('microCMSからの記事取得に失敗しました:', error);
+  }
+  
+  // 両方の記事を結合（microCMSを優先）
+  const allPosts = microCMSPosts.length > 0 ? microCMSPosts : markdownPosts;
+  
+  return paginate(allPosts, { 
+    pageSize: siteConfig.postsPerPage || 2,
+    props: { isMicroCMS: microCMSPosts.length > 0 }
+  });
 }
 
-type Props = { page: Page<CollectionEntry<"blogs">> };
+type Props = { 
+  page: Page<CollectionEntry<"blogs"> | BlogPost>;
+  isMicroCMS: boolean;
+};
 
-const { page } = Astro.props;
+const { page, isMicroCMS } = Astro.props;
 const allPosts = page.data;
 ---
 
@@ -30,7 +54,7 @@ const allPosts = page.data;
     <div
       class="flex flex-col text-left gap-8 mb-4 text-sm sm:text-base max-w-fit mx-auto"
     >
-      {allPosts.map((post) => <PostCardPreview post={post} />)}
+      {allPosts.map((post) => <PostCardPreview post={post} isMicroCMS={isMicroCMS} />)}
     </div>
     <Pagination page={page} class="mb-16 sm:mb-24" />
   </div>

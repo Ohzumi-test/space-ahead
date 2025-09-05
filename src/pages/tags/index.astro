@@ -4,18 +4,47 @@ import {
   getPostsByTag,
   sortItemsByDateDesc,
   withBase,
+  getAllTagsFromBlogPosts,
+  getBlogPostsByTag,
 } from "../../utils/helpers";
 import { getCollection } from "astro:content";
+import { getBlogPosts } from "../../lib/microcms";
 import Button from "../../components/Button.astro";
 import MainLayout from "../../layouts/MainLayout.astro";
 import siteConfig from "../../site.config";
 
-const posts = (await getCollection("blogs")).sort(sortItemsByDateDesc);
-const tags = getAllTags(posts).sort((tagA, tagB) => {
-  const postCountTagA = getPostsByTag(posts, tagA.id).length;
-  const postCountTagB = getPostsByTag(posts, tagB.id).length;
-  return postCountTagB - postCountTagA;
-});
+// Markdownの記事を取得
+const markdownPosts = (await getCollection("blogs")).sort(sortItemsByDateDesc);
+
+// microCMSの記事を取得
+let microCMSPosts = [];
+let isMicroCMS = false;
+try {
+  const response = await getBlogPosts({
+    limit: 1000,
+    orders: '-publishedAt'
+  });
+  microCMSPosts = response.contents.filter(post => !post.draft);
+  isMicroCMS = microCMSPosts.length > 0;
+} catch (error) {
+  console.warn('microCMSからの記事取得に失敗しました:', error);
+}
+
+// 両方の記事を結合（microCMSを優先）
+const allPosts = isMicroCMS ? microCMSPosts : markdownPosts;
+
+// タグを取得
+const tags = isMicroCMS 
+  ? getAllTagsFromBlogPosts(microCMSPosts).sort((tagA, tagB) => {
+      const postCountTagA = getBlogPostsByTag(microCMSPosts, tagA.slug).length;
+      const postCountTagB = getBlogPostsByTag(microCMSPosts, tagB.slug).length;
+      return postCountTagB - postCountTagA;
+    })
+  : getAllTags(markdownPosts).sort((tagA, tagB) => {
+      const postCountTagA = getPostsByTag(markdownPosts, tagA.id).length;
+      const postCountTagB = getPostsByTag(markdownPosts, tagB.id).length;
+      return postCountTagB - postCountTagA;
+    });
 ---
 
 <MainLayout
@@ -28,9 +57,12 @@ const tags = getAllTags(posts).sort((tagA, tagB) => {
     <div class="flex flex-wrap items-center justify-center gap-4">
       {
         tags.map((tag) => {
-          const postCount = getPostsByTag(posts, tag.id).length;
+          const postCount = isMicroCMS 
+            ? getBlogPostsByTag(microCMSPosts, tag.slug).length
+            : getPostsByTag(markdownPosts, tag.id).length;
+          const tagSlug = isMicroCMS ? tag.slug : tag.id;
           return (
-            <Button href={`${withBase("/tags/" + tag.id)}`} class="px-4! m-2">
+            <Button href={`${withBase("/tags/" + tagSlug)}`} class="px-4! m-2">
               {tag.name} ({postCount})
             </Button>
           );

@@ -5,8 +5,10 @@ import {
   sortItemsByDateDesc,
   createSlugFromTitle,
   withBase,
+  sortBlogPostsByDateDesc,
 } from "../../utils/helpers";
 import { type CollectionEntry, getCollection, render } from "astro:content";
+import { getBlogPosts, getBlogPost, type BlogPost } from "../../lib/microcms";
 import Button from "../../components/Button.astro";
 import MainLayout from "../../layouts/MainLayout.astro";
 import ArrowLeft from "../../icons/ArrowLeft.astro";
@@ -14,27 +16,60 @@ import ArrowRight from "../../icons/ArrowRight.astro";
 import siteConfig from "../../site.config";
 
 export async function getStaticPaths() {
-  const posts = (await getCollection("blogs")).sort(sortItemsByDateDesc);
-  const postCount = posts.length;
-  return posts.map((post, index) => ({
-    params: { id: post.id },
+  // Markdownの記事を取得
+  const markdownPosts = (await getCollection("blogs")).sort(sortItemsByDateDesc);
+  
+  // microCMSの記事を取得
+  let microCMSPosts: BlogPost[] = [];
+  try {
+    const response = await getBlogPosts({
+      limit: 1000,
+      orders: '-publishedAt'
+    });
+    microCMSPosts = response.contents.filter(post => !post.draft);
+  } catch (error) {
+    console.warn('microCMSからの記事取得に失敗しました:', error);
+  }
+  
+  // 両方の記事を結合（microCMSを優先）
+  const allPosts = microCMSPosts.length > 0 ? microCMSPosts : markdownPosts;
+  const isMicroCMS = microCMSPosts.length > 0;
+  const postCount = allPosts.length;
+  
+  return allPosts.map((post, index) => ({
+    params: { id: isMicroCMS ? (post as BlogPost).id : (post as CollectionEntry<"blogs">).id },
     props: {
       post,
-      prevPost: index + 1 !== postCount ? posts[index + 1] : null,
-      nextPost: index !== 0 ? posts[index - 1] : null,
+      prevPost: index + 1 !== postCount ? allPosts[index + 1] : null,
+      nextPost: index !== 0 ? allPosts[index - 1] : null,
+      isMicroCMS,
     },
   }));
 }
 
 type Props = {
-  post: CollectionEntry<"blogs">;
-  prevPost: CollectionEntry<"blogs">;
-  nextPost: CollectionEntry<"blogs">;
+  post: CollectionEntry<"blogs"> | BlogPost;
+  prevPost: CollectionEntry<"blogs"> | BlogPost | null;
+  nextPost: CollectionEntry<"blogs"> | BlogPost | null;
+  isMicroCMS: boolean;
 };
 
-const { post, prevPost, nextPost } = Astro.props;
-const { title, pubDate, author, tags = [], image } = post.data;
-const { Content } = await render(post);
+const { post, prevPost, nextPost, isMicroCMS } = Astro.props;
+
+// microCMSの場合とMarkdownの場合で分岐
+const title = isMicroCMS ? (post as BlogPost).title : (post as CollectionEntry<"blogs">).data.title;
+const pubDate = isMicroCMS ? new Date((post as BlogPost).publishedAt) : new Date((post as CollectionEntry<"blogs">).data.pubDate);
+const author = isMicroCMS ? (post as BlogPost).author : (post as CollectionEntry<"blogs">).data.author;
+const tags = isMicroCMS ? ((post as BlogPost).tags || []) : ((post as CollectionEntry<"blogs">).data.tags || []);
+const image = isMicroCMS ? (post as BlogPost).image : (post as CollectionEntry<"blogs">).data.image;
+const content = isMicroCMS ? (post as BlogPost).content : null;
+
+// Markdownの場合のみContentを取得
+let Content = null;
+if (!isMicroCMS) {
+  const rendered = await render(post as CollectionEntry<"blogs">);
+  Content = rendered.Content;
+}
 ---
 
 <MainLayout pageTitle={siteConfig.title + " | " + title}>
@@ -42,7 +77,7 @@ const { Content } = await render(post);
     <h1 class="sigmar-ff text-center text-balance">{title}</h1>
     <p class="leading-8 text-center kanit-regular text-balance text-xs">
       by 🧑‍🚀 <span class="kanit-bold">{author}</span> on <span class="kanit-bold"
-        >{new Date(pubDate).toDateString()}</span
+        >{pubDate.toDateString()}</span
       >
     </p>
     {
@@ -51,16 +86,20 @@ const { Content } = await render(post);
       )
     }
     <div class="font-light text-left">
-      <Content />
+      {isMicroCMS ? (
+        <div set:html={content} />
+      ) : (
+        Content && <Content />
+      )}
     </div>
     <p class="kanit-regular text-center text-balance text-xs">
       Tagged: {
         tags.map((tag) => (
           <Button
             class="px-4! m-2"
-            href={withBase("/tags/" + createSlugFromTitle(tag))}
+            href={withBase("/tags/" + (isMicroCMS ? (tag as any).slug : createSlugFromTitle(tag as string)))}
           >
-            {tag}
+            {isMicroCMS ? (tag as any).name : tag}
           </Button>
         ))
       }
@@ -75,9 +114,9 @@ const { Content } = await render(post);
         (prevPost || nextPost) && nextPost && (
           <Button
             class="back-link text-balance"
-            href={withBase("/blog/" + nextPost.id)}
+            href={withBase("/blog/" + (isMicroCMS ? (nextPost as BlogPost).id : (nextPost as CollectionEntry<"blogs">).id))}
           >
-            Next Post: {nextPost.data.title}{" "}
+            Next Post: {isMicroCMS ? (nextPost as BlogPost).title : (nextPost as CollectionEntry<"blogs">).data.title}{" "}
             <ArrowRight class="w-5 h-5 fill-current ml-4" />
           </Button>
         )

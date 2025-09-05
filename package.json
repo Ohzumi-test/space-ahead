@@ -16,6 +16,7 @@
     "@swup/astro": "^1.7.0",
     "@tailwindcss/vite": "^4.1.12",
     "astro": "^5.13.4",
+    "microcms-js-sdk": "^3.2.0",
     "preact": "^10.27.1",
     "sharp": "^0.34.3",
     "tailwindcss": "^4.1.12"

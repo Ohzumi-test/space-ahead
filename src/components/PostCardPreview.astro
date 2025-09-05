@@ -1,15 +1,25 @@
 ---
 import { Image } from "astro:assets";
 import type { CollectionEntry } from "astro:content";
+import type { BlogPost } from "../lib/microcms";
 import FormattedDate from "./FormattedDate.astro";
 import { withBase } from "../utils/helpers";
 
-type Props = { post: CollectionEntry<"blogs"> };
-const { post } = Astro.props;
-const { title, pubDate, description, image } = post.data;
+type Props = { 
+  post: CollectionEntry<"blogs"> | BlogPost;
+  isMicroCMS?: boolean;
+};
+const { post, isMicroCMS = false } = Astro.props;
+
+// microCMSの場合とMarkdownの場合で分岐
+const title = isMicroCMS ? (post as BlogPost).title : (post as CollectionEntry<"blogs">).data.title;
+const pubDate = isMicroCMS ? new Date((post as BlogPost).publishedAt) : new Date((post as CollectionEntry<"blogs">).data.pubDate);
+const description = isMicroCMS ? (post as BlogPost).description : (post as CollectionEntry<"blogs">).data.description;
+const image = isMicroCMS ? (post as BlogPost).image : (post as CollectionEntry<"blogs">).data.image;
+const postId = isMicroCMS ? (post as BlogPost).id : (post as CollectionEntry<"blogs">).id;
 ---
 
-<a class="font-bold" href={withBase("/blog/" + post.id)}>
+<a class="font-bold" href={withBase("/blog/" + postId)}>
   <div class="flex flex-col sm:flex-row gap-2 sm:gap-4">
     {
       image && image.url && (
@@ -26,7 +36,7 @@ const { title, pubDate, description, image } = post.data;
     }
     <div class="flex flex-col max-w-fit">
       <h2 class="mb-1">{title}</h2>
-      <FormattedDate date={new Date(pubDate)} />
+      <FormattedDate date={pubDate} />
       {
         description && (
           <p class="font-light text-base text-balance">{description}</p>

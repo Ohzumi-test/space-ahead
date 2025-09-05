@@ -1,23 +1,31 @@
 ---
 import { type CollectionEntry } from "astro:content";
+import type { BlogPost } from "../lib/microcms";
 import ArrowRight from "../icons/ArrowRight.astro";
 import FormattedDate from "./FormattedDate.astro";
 import { withBase } from "../utils/helpers";
 
 type Props = {
-  post: CollectionEntry<"blogs">;
+  post: CollectionEntry<"blogs"> | BlogPost;
   class?: string;
   headingLevel?: "h2" | "h3";
+  isMicroCMS?: boolean;
 };
 
-const { post, class: className, headingLevel = "h2" } = Astro.props;
-const { title, pubDate, description } = post.data;
+const { post, class: className, headingLevel = "h2", isMicroCMS = false } = Astro.props;
+
+// microCMSの場合とMarkdownの場合で分岐
+const title = isMicroCMS ? (post as BlogPost).title : (post as CollectionEntry<"blogs">).data.title;
+const pubDate = isMicroCMS ? new Date((post as BlogPost).publishedAt) : new Date((post as CollectionEntry<"blogs">).data.pubDate);
+const description = isMicroCMS ? (post as BlogPost).description : (post as CollectionEntry<"blogs">).data.description;
+const postId = isMicroCMS ? (post as BlogPost).id : (post as CollectionEntry<"blogs">).id;
+
 const TitleTag = headingLevel;
 ---
 
 <a
   class:list={["flex justify-between items-start gap-8 group", className]}
-  href={withBase("/blog/" + post.id)}
+  href={withBase("/blog/" + postId)}
 >
   <div class="grow">
     <TitleTag class="sigmar-ff">{title}</TitleTag>
